@@ -254,7 +254,8 @@ def scrape_allocation_page(page, row):
 # ─────────────────────────────────────────
 def scrape_amount(market, username, password):
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False)
+        browser = p.chromium.launch(headless=True)
+
         page = browser.new_page()
 
         try:
@@ -327,7 +328,7 @@ def run_allocation(selected_markets=None):
     results_map = {}
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False)
+        browser = p.chromium.launch(headless=True)
 
         for row in rows:
             page = browser.new_page()
@@ -418,7 +419,7 @@ def run_amounts(selected_markets=None):
     results = []
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False)
+        browser = p.chromium.launch(headless=True)
 
         for row in rows:
             page = browser.new_page()
