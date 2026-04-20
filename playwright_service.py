@@ -7,8 +7,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from openpyxl import Workbook
 import uuid
 import asyncio
-
-import asyncio
 import sys
 
 if sys.platform.startswith("win"):
@@ -33,7 +31,10 @@ def login(page, username, password):
     page.click("a[name='login']")
 
     page.wait_for_load_state("domcontentloaded")
-    page.wait_for_timeout(8000)  # <-- VERY IMPORTANT
+    for _ in range(15):
+        if len(page.frames) > 5:
+            break
+        time.sleep(1)
 
     text = None
     print(f"[{username}] URL:", page.url)
@@ -200,6 +201,30 @@ def scrape_allocation_page(page, row):
         return devices  # return catalog at least
 
     time.sleep(3)
+    cpo_loaded = False
+
+    for _ in range(15):
+        for frame in page.frames:
+            try:
+                # check if CPO tab is ACTIVE
+                if frame.locator("span[title*='CPO']").count() > 0:
+                    # OR check URL change / items reload
+                    items = frame.locator(".catalauge-item-holder")
+                    if items.count() > 0:
+                        cpo_loaded = True
+                        break
+            except:
+                continue
+
+        if cpo_loaded:
+            break
+
+        time.sleep(1)
+
+    if not cpo_loaded:
+        print(f"[{market}] ⚠️ CPO did not load properly")
+        return devices  # avoid duplicate catalog
+
 
     # ───── 4. GET CPO ITEMS ─────
     items = None
@@ -228,10 +253,16 @@ def scrape_allocation_page(page, row):
             sku = item.locator(".cat-prd-id").inner_text()
 
             alloc_text = item.locator(".cat-prd-qty").inner_text()
+            alloc_text = item.locator(".cat-prd-qty").inner_text().strip()
+
             nums = re.findall(r'\d+', alloc_text)
 
-            available = int(nums[0]) if nums else 0
-            total = int(nums[1]) if len(nums) > 1 else 0
+            if len(nums) < 2:
+                print(f"[{market}] ⚠️ Incomplete allocation text:", alloc_text)
+                continue  # skip this item
+
+            available = int(nums[0])
+            total = int(nums[1])
 
             if available > 0:
                 devices.append({
@@ -283,23 +314,25 @@ def scrape_amount(market, username, password):
                 print(f"[{market}] ⚠️ No iframe found — likely login issue")
                 return {"Market": market, "Capacity": "ERROR"}
 
-                text = None
+            text = None  # ✅ NOW correctly placed
 
-                for _ in range(15):  # retry for ~15 seconds
-                    for frame in page.frames:
-                        try:
-                            locator = frame.locator("#credithold-tab-msg")
-                            if locator.count() > 0:
-                                text = locator.inner_text(timeout=2000)
-                                if text.strip():
-                                    break
-                        except:
-                            continue
+            for _ in range(15):  # retry for ~15 seconds
+                for frame in page.frames:
+                    try:
+                        locator = frame.locator("#credithold-tab-msg")
+                        if locator.count() > 0:
+                            text = locator.inner_text(timeout=2000)
+                            if text.strip():
+                                break
+                    except:
+                        continue
 
-                    if text:
-                        break
+                if text:
+                    break
 
-                    time.sleep(1)  # wait and retry
+                time.sleep(1)  # wait and retry
+
+
             if not text:
                 return {"Market": market, "Capacity": "NOT FOUND"}
 
@@ -371,10 +404,18 @@ def scrape_amount_page(page, row):
 
     iframe_found = False
 
-    for _ in range(10):  # try for ~10 seconds
-        if len(page.frames) > 1:
-            iframe_found = True
+    for _ in range(15):
+        for frame in page.frames:
+            try:
+                if frame.locator("#credithold-tab-msg").count() > 0:
+                    iframe_found = True
+                    break
+            except:
+                continue
+
+        if iframe_found:
             break
+
         time.sleep(1)
 
     if not iframe_found:
@@ -399,7 +440,7 @@ def scrape_amount_page(page, row):
         time.sleep(1)  # wait and retry
 
     if not text:
-        print("⚠️ Login may not have loaded correctly")
+        return {"Market": market, "Capacity": "NOT FOUND"}
 
     match = re.search(r'\$(\d[\d,\.]*)', text)
 
