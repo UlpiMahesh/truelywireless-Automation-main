@@ -8,7 +8,12 @@ from openpyxl import Workbook
 import uuid
 import asyncio
 
-asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+import asyncio
+import sys
+
+if sys.platform.startswith("win"):
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
 BASE_DIR = Path(__file__).resolve().parent
 LOGINS_FILE = BASE_DIR / "data" / "marketlogins.xlsx"
 
