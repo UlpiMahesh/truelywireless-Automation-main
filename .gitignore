@@ -4,3 +4,5 @@ __pycache__/
 *.pyo
 *.pyd
 .env
+# Added by code-review-graph
+.code-review-graph/
