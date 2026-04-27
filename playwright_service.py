@@ -306,11 +306,17 @@ def scrape_amount_page(page, row):
                         capacity = fallback.group(0)
                         print(f"[{market}] ✅ Capacity (fallback): {capacity}")
                         return {"Market": market, "Capacity": capacity}
+                    number_only = re.search(r"(\d[\d,]*\.\d+)", text)
+
+                    if number_only:
+                        capacity = "$" + number_only.group(1)
+                        print(f"[{market}] ✅ Capacity (number-only): {capacity}")
+                        return {"Market": market, "Capacity": capacity}
 
             except Exception:
                 pass
 
-        print(f"[{market}] ⏳ Attempt {attempt + 1}/20 — capacity element not ready")
+        print(f"[{market}] ⏳ Attempt {attempt+1} — capacity not parsed yet")
         time.sleep(1)
 
     print(f"[{market}] ❌ Ordering capacity not found")
